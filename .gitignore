@@ -22,6 +22,10 @@ backend/uploads/
 
 Musicfy-share.apk
 Musicfy-share.zip
+.deploy-tokens.ps1
+.deploy-secrets.env
+.netlify-*.json
+frontend/dist-netlify.zip
 
 *.log
 *.tmp
