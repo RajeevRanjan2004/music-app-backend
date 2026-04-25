@@ -1,0 +1,57 @@
+import { Link, useLocation } from "react-router-dom";
+import { FaHome, FaSearch, FaBookOpen, FaHeart, FaListUl, FaUserEdit } from "react-icons/fa";
+import musicfyLogo from "../assets/musicfy.png";
+
+const Sidebar = () => {
+  const location = useLocation();
+
+  const links = [
+    { to: "/", label: "Home", icon: FaHome },
+    { to: "/search", label: "Search", icon: FaSearch },
+    { to: "/library", label: "Your Library", icon: FaBookOpen },
+    { to: "/liked-songs", label: "Liked Songs", icon: FaHeart },
+    { to: "/playlists", label: "Playlists", icon: FaListUl },
+    { to: "/profile", label: "Edit Profile", icon: FaUserEdit },
+  ];
+
+  return (
+    <aside className="hidden w-64 flex-col gap-3 rounded-2xl bg-zinc-950/90 p-3 md:flex">
+      <div className="rounded-xl bg-zinc-900/80 p-5">
+        <div className="flex items-center gap-3">
+          <img
+            src={musicfyLogo}
+            alt="Musicfy"
+            className="h-10 w-10 rounded-lg object-contain"
+          />
+          <h1 className="text-2xl font-extrabold tracking-tight text-white">
+            Musicfy
+          </h1>
+        </div>
+      </div>
+
+      <nav className="rounded-xl bg-zinc-900/70 p-2">
+        {links.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.to;
+
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                isActive
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
+              }`}
+            >
+              <Icon className={isActive ? "text-green-500" : ""} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+};
+
+export default Sidebar;

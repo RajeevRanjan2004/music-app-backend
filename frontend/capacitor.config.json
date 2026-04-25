@@ -1,0 +1,8 @@
+{
+  "appId": "com.musicfy.app",
+  "appName": "Musicfy",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  }
+}
