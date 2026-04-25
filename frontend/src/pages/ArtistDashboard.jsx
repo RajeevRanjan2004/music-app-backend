@@ -6,7 +6,12 @@ import { apiRequest } from "../lib/api";
 
 export default function ArtistDashboard() {
   const { user } = useAuth();
-  const { fetchSongs: refreshGlobalSongs } = usePlayer();
+  const {
+    fetchSongs: refreshGlobalSongs,
+    playSong,
+    playNextInQueue,
+    addToQueue,
+  } = usePlayer();
   const [songs, setSongs] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [activeTab, setActiveTab] = useState("songs");
@@ -728,6 +733,12 @@ export default function ArtistDashboard() {
                       </p>
                       <div className="mb-3 flex gap-2">
                         <button
+                          onClick={() => playSong(song)}
+                          className="flex-1 rounded bg-green-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-green-700"
+                        >
+                          Play
+                        </button>
+                        <button
                           onClick={() => handleEditSong(song)}
                           className="flex-1 rounded bg-blue-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-700"
                         >
@@ -738,6 +749,20 @@ export default function ArtistDashboard() {
                           className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-700"
                         >
                           Delete
+                        </button>
+                      </div>
+                      <div className="mb-3 flex gap-2">
+                        <button
+                          onClick={() => playNextInQueue(song)}
+                          className="flex-1 rounded bg-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-600"
+                        >
+                          Play Next
+                        </button>
+                        <button
+                          onClick={() => addToQueue(song)}
+                          className="flex-1 rounded bg-zinc-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-600"
+                        >
+                          Queue
                         </button>
                       </div>
                       <select

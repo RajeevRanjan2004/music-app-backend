@@ -1,8 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from "react";
-import { apiRequest } from "../lib/api";
+import { apiRequest, resolveApiAssetUrl } from "../lib/api";
 
 const AuthContext = createContext();
+
+function normalizeUser(user) {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    ...user,
+    avatar: resolveApiAssetUrl(user.avatar),
+  };
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -21,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const me = await apiRequest("/auth/me");
-        setUser(me.user);
+        setUser(normalizeUser(me.user));
       } catch {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -39,11 +50,12 @@ export const AuthProvider = ({ children }) => {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+    const nextUser = normalizeUser(data.user);
 
-    setUser(data.user);
+    setUser(nextUser);
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    return data.user;
+    localStorage.setItem("user", JSON.stringify(nextUser));
+    return nextUser;
   };
 
   const register = async ({ name, email, password, role }) => {
@@ -52,11 +64,12 @@ export const AuthProvider = ({ children }) => {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     });
+    const nextUser = normalizeUser(data.user);
 
-    setUser(data.user);
+    setUser(nextUser);
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    return data.user;
+    localStorage.setItem("user", JSON.stringify(nextUser));
+    return nextUser;
   };
 
   const logout = () => {
@@ -70,11 +83,12 @@ export const AuthProvider = ({ children }) => {
       method: "PUT",
       body: payload,
     });
+    const nextUser = normalizeUser(data.user);
 
-    setUser(data.user);
+    setUser(nextUser);
     localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    return data.user;
+    localStorage.setItem("user", JSON.stringify(nextUser));
+    return nextUser;
   };
 
   return (

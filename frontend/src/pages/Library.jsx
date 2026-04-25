@@ -255,19 +255,19 @@ const Library = () => {
             </div>
             <div className="flex items-center justify-end gap-2">
               <button
-                onClick={() => playSong(song.id)}
+                onClick={() => playSong(song)}
                 className="text-sm text-zinc-300 hover:text-white"
               >
                 Play
               </button>
               <button
-                onClick={() => playNextInQueue(song.id)}
+                onClick={() => playNextInQueue(song)}
                 className="text-xs text-zinc-400 hover:text-white"
               >
                 Next
               </button>
               <button
-                onClick={() => addToQueue(song.id)}
+                onClick={() => addToQueue(song)}
                 className="text-xs text-zinc-400 hover:text-white"
               >
                 Queue

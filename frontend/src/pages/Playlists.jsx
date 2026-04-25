@@ -216,7 +216,7 @@ const Playlists = () => {
                   {playlistSongs.map((song) => (
                     <div key={`${song.id}-playlist`} className="flex items-center justify-between gap-2">
                       <button
-                        onClick={() => playSong(song.id)}
+                        onClick={() => playSong(song)}
                         className="truncate text-left text-sm hover:text-green-400"
                       >
                         {song.title}

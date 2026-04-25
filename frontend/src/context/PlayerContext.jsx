@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
-import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
-import { apiRequest } from "../lib/api";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { apiRequest, resolveApiAssetUrl } from "../lib/api";
 
 const PlayerContext = createContext();
 
@@ -15,70 +15,139 @@ export const PlayerProvider = ({ children }) => {
   const [continueSongs, setContinueSongs] = useState([]);
   const [recentSongs, setRecentSongs] = useState([]);
 
+  const normalizeSong = useCallback((song) => {
+    if (!song || typeof song !== "object") {
+      return null;
+    }
+
+    const id = song.id ?? song.songId;
+    if (!id) {
+      return null;
+    }
+
+    return {
+      ...song,
+      id,
+      title: song.title || "Untitled Song",
+      artist: song.artist || "Unknown Artist",
+      image: resolveApiAssetUrl(song.image || song.cover || "https://picsum.photos/300/300"),
+      src: resolveApiAssetUrl(song.src || song.audioUrl || ""),
+      duration: Number(song.duration) || 0,
+    };
+  }, []);
+
   const fetchSongs = useCallback(async () => {
     setLoadingSongs(true);
     try {
       const data = await apiRequest("/songs?sort=likes&limit=100");
-      setSongs(data.songs || []);
-      setCurrentIndex(0);
+      const nextSongs = (data.songs || []).map(normalizeSong).filter(Boolean);
+      setSongs(nextSongs);
+      setCurrentIndex((prevIndex) => {
+        const currentSongId = songs[prevIndex]?.id;
+        if (!currentSongId) {
+          return 0;
+        }
+
+        const nextIndex = nextSongs.findIndex((song) => song.id === currentSongId);
+        return nextIndex >= 0 ? nextIndex : 0;
+      });
     } catch {
       setSongs([]);
     } finally {
       setLoadingSongs(false);
     }
-  }, []);
+  }, [normalizeSong, songs]);
 
   const fetchContinueSongs = useCallback(async () => {
     try {
       const data = await apiRequest("/songs/continue");
-      setContinueSongs(data.songs || []);
+      setContinueSongs((data.songs || []).map(normalizeSong).filter(Boolean));
     } catch {
       setContinueSongs([]);
     }
-  }, []);
+  }, [normalizeSong]);
 
   const fetchRecentSongs = useCallback(async () => {
     try {
       const data = await apiRequest("/songs/recent");
-      setRecentSongs(data.recent || []);
+      setRecentSongs((data.recent || []).map(normalizeSong).filter(Boolean));
     } catch {
       setRecentSongs([]);
     }
-  }, []);
+  }, [normalizeSong]);
 
   useEffect(() => {
     void fetchSongs();
   }, [fetchSongs]);
 
-  const songMap = useMemo(() => {
-    return new Map(songs.map((song) => [song.id, song]));
-  }, [songs]);
+  const ensureSongInState = useCallback((song) => {
+    const normalizedSong = normalizeSong(song);
+    if (!normalizedSong) {
+      return null;
+    }
+
+    const existingIndex = songs.findIndex((item) => item.id === normalizedSong.id);
+    if (existingIndex >= 0) {
+      setSongs((prev) =>
+        prev.map((item, index) =>
+          index === existingIndex ? { ...item, ...normalizedSong } : item
+        )
+      );
+
+      return {
+        id: normalizedSong.id,
+        index: existingIndex,
+      };
+    }
+
+    setSongs((prev) => [normalizedSong, ...prev]);
+    return {
+      id: normalizedSong.id,
+      index: 0,
+    };
+  }, [normalizeSong, songs]);
+
+  const resolveSongEntry = useCallback((identifier) => {
+    if (typeof identifier === "object") {
+      return ensureSongInState(identifier);
+    }
+
+    if (typeof identifier === "string") {
+      const index = songs.findIndex((song) => song.id === identifier);
+      if (index >= 0) {
+        return { id: identifier, index };
+      }
+    }
+
+    return null;
+  }, [ensureSongInState, songs]);
 
   const playSong = useCallback((identifier) => {
-    if (!songs.length) return;
-
     if (typeof identifier === "number") {
+      if (!songs.length) return;
       setCurrentIndex(identifier);
       setIsPlaying(true);
       return;
     }
 
-    const index = songs.findIndex((song) => song.id === identifier);
-    if (index >= 0) {
-      setCurrentIndex(index);
+    const resolvedSong = resolveSongEntry(identifier);
+    if (resolvedSong) {
+      setCurrentIndex(resolvedSong.index);
       setIsPlaying(true);
     }
-  }, [songs]);
+  }, [resolveSongEntry, songs.length]);
 
-  const addToQueue = useCallback((songId) => {
-    if (!songMap.has(songId)) return;
-    setQueue((prev) => [...prev, songId]);
-  }, [songMap]);
+  const addToQueue = useCallback((identifier) => {
+    const resolvedSong = resolveSongEntry(identifier);
+    if (!resolvedSong) return;
+    setQueue((prev) => [...prev, resolvedSong.id]);
+  }, [resolveSongEntry]);
 
-  const playNextInQueue = useCallback((songId) => {
-    if (!songMap.has(songId)) return;
-    setQueue((prev) => [songId, ...prev]);
-  }, [songMap]);
+  const playNextInQueue = useCallback((identifier) => {
+    const resolvedSong = resolveSongEntry(identifier);
+    if (!resolvedSong) return;
+    setQueue((prev) => [resolvedSong.id, ...prev]);
+  }, [resolveSongEntry]);
 
   const removeFromQueue = useCallback((songId) => {
     setQueue((prev) => prev.filter((id) => id !== songId));
@@ -112,8 +181,8 @@ export const PlayerProvider = ({ children }) => {
       body: JSON.stringify(payload),
     });
     await fetchSongs();
-    return data.song;
-  }, [fetchSongs]);
+    return normalizeSong(data.song);
+  }, [fetchSongs, normalizeSong]);
 
   return (
     <PlayerContext.Provider

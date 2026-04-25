@@ -159,7 +159,7 @@ const Search = () => {
               key={song.id}
               className="flex w-full items-center justify-between rounded-lg bg-zinc-900/70 px-4 py-3 text-left transition hover:bg-zinc-800"
             >
-              <button onClick={() => playSong(song.id)} className="flex items-center gap-3 text-left">
+              <button onClick={() => playSong(song)} className="flex items-center gap-3 text-left">
                 <img
                   src={song.image}
                   alt={song.title}
@@ -173,10 +173,10 @@ const Search = () => {
                 </div>
               </button>
               <div className="flex items-center gap-3 text-sm">
-                <button onClick={() => playNextInQueue(song.id)} className="text-zinc-300 hover:text-white">
+                <button onClick={() => playNextInQueue(song)} className="text-zinc-300 hover:text-white">
                   Play next
                 </button>
-                <button onClick={() => addToQueue(song.id)} className="text-zinc-300 hover:text-white">
+                <button onClick={() => addToQueue(song)} className="text-zinc-300 hover:text-white">
                   Queue
                 </button>
               </div>

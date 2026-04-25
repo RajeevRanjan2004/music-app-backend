@@ -52,14 +52,14 @@ const LikedSongs = () => {
               className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg bg-zinc-900/50 px-4 py-3"
             >
               <span className="text-zinc-400">{String(index + 1).padStart(2, "0")}</span>
-              <button onClick={() => playSong(song.id)} className="flex items-center gap-3 text-left">
+              <button onClick={() => playSong(song)} className="flex items-center gap-3 text-left">
                 <img src={song.image} alt={song.title} className="h-10 w-10 rounded object-cover" />
                 <div>
                   <p className="font-medium">{song.title}</p>
                   <p className="text-sm text-zinc-400">{song.artist}</p>
                 </div>
               </button>
-              <button onClick={() => addToQueue(song.id)} className="text-sm text-zinc-300 hover:text-white">
+              <button onClick={() => addToQueue(song)} className="text-sm text-zinc-300 hover:text-white">
                 Queue
               </button>
             </div>

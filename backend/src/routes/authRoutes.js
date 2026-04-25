@@ -15,6 +15,8 @@ const {
   sanitizeText,
 } = require("../utils/validation");
 const { sendPasswordResetOtpEmail } = require("../utils/email");
+const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
 const authLimiter = createRateLimiter({ windowMs: 60_000, max: 15 });
@@ -41,13 +43,13 @@ const avatarUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-function serializeUser(user) {
+function serializeUser(user, req) {
   return {
     id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
-    avatar: user.avatar || "",
+    avatar: resolveAssetUrl(user.avatar, req),
   };
 }
 
@@ -98,7 +100,7 @@ async function registerUser(req, res, forcedRole) {
     return res.status(201).json({
       message: "Registration successful",
       token,
-      user: serializeUser(user),
+      user: serializeUser(user, req),
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -141,7 +143,7 @@ router.post("/login", authLimiter, async (req, res) => {
 
     return res.status(200).json({
       token,
-      user: serializeUser(user),
+      user: serializeUser(user, req),
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -157,7 +159,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     }
 
     return res.status(200).json({
-      user: serializeUser(user),
+      user: serializeUser(user, req),
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -196,8 +198,10 @@ router.put("/profile", authMiddleware, avatarUpload.single("avatar"), async (req
     }
 
     if (req.file) {
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      user.avatar = `${baseUrl}/uploads/${req.file.filename}`;
+      user.avatar = await persistUploadedFile(req.file, {
+        kind: "avatar",
+        userId: req.user.id,
+      });
     }
 
     if (newPassword) {
@@ -227,7 +231,7 @@ router.put("/profile", authMiddleware, avatarUpload.single("avatar"), async (req
     return res.status(200).json({
       message: "Profile updated successfully",
       token,
-      user: serializeUser(user),
+      user: serializeUser(user, req),
     });
   } catch (error) {
     console.error("Profile update error:", error);

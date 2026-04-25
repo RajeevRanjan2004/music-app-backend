@@ -8,6 +8,8 @@ const requireRole = require("../middleware/roleMiddleware");
 const { uploadsDir } = require("../config/paths");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
+const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
 
@@ -51,13 +53,13 @@ const upload = multer({
   },
 });
 
-function mapSong(song) {
+function mapSong(song, req) {
   return {
     id: song.songId,
     title: song.title,
     artist: song.artist,
-    image: song.image,
-    src: song.src,
+    image: resolveAssetUrl(song.image, req),
+    src: resolveAssetUrl(song.src, req),
     duration: song.duration,
     language: song.language,
   };
@@ -81,46 +83,50 @@ function normalizeKey(value) {
 async function parseMetadataFile(file) {
   if (!file) return new Map();
 
-  const ext = path.extname(file.originalname || file.filename || "").toLowerCase();
-  let workbook;
+  try {
+    const ext = path.extname(file.originalname || file.filename || "").toLowerCase();
+    let workbook;
 
-  if (ext === ".csv" || ext === ".tsv") {
-    const fileContent = await fs.readFile(file.path, "utf8");
-    workbook = XLSX.read(fileContent, {
-      type: "string",
-      FS: ext === ".tsv" ? "\t" : ",",
+    if (ext === ".csv" || ext === ".tsv") {
+      const fileContent = await fs.readFile(file.path, "utf8");
+      workbook = XLSX.read(fileContent, {
+        type: "string",
+        FS: ext === ".tsv" ? "\t" : ",",
+      });
+    } else {
+      workbook = XLSX.readFile(file.path);
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const metadataMap = new Map();
+
+    rows.forEach((row) => {
+      const rowKey =
+        row.filename ||
+        row.fileName ||
+        row.file ||
+        row.audio ||
+        row.song ||
+        row.track ||
+        "";
+      const normalized = normalizeKey(rowKey);
+      if (!normalized) return;
+
+      metadataMap.set(normalized, {
+        title: sanitizeText(row.title || row.songTitle || titleFromFilename(rowKey), 120),
+        artist: sanitizeText(row.artist || "", 120),
+        language: sanitizeText(row.language || "", 40),
+        duration: Math.max(0, parseNumber(row.duration, 0)),
+        image: sanitizeText(row.image || row.cover || "", 500),
+      });
     });
-  } else {
-    workbook = XLSX.readFile(file.path);
+
+    return metadataMap;
+  } finally {
+    await fs.unlink(file.path).catch(() => {});
   }
-
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  const metadataMap = new Map();
-
-  rows.forEach((row) => {
-    const rowKey =
-      row.filename ||
-      row.fileName ||
-      row.file ||
-      row.audio ||
-      row.song ||
-      row.track ||
-      "";
-    const normalized = normalizeKey(rowKey);
-    if (!normalized) return;
-
-    metadataMap.set(normalized, {
-      title: sanitizeText(row.title || row.songTitle || titleFromFilename(rowKey), 120),
-      artist: sanitizeText(row.artist || "", 120),
-      language: sanitizeText(row.language || "", 40),
-      duration: Math.max(0, parseNumber(row.duration, 0)),
-      image: sanitizeText(row.image || row.cover || "", 500),
-    });
-  });
-
-  return metadataMap;
 }
 
 router.post(
@@ -139,14 +145,21 @@ router.post(
       return res.status(400).json({ message: "audio file is required" });
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const audioUrl = `${baseUrl}/uploads/${audio.filename}`;
-    const imageUrl = image ? `${baseUrl}/uploads/${image.filename}` : "";
+    const audioPath = await persistUploadedFile(audio, {
+      kind: "standalone-upload",
+      uploadedBy: req.user.id,
+    });
+    const imagePath = image
+      ? await persistUploadedFile(image, {
+          kind: "standalone-image",
+          uploadedBy: req.user.id,
+        })
+      : "";
 
     return res.status(201).json({
       message: "Uploaded",
-      audioUrl,
-      imageUrl,
+      audioUrl: resolveAssetUrl(audioPath, req),
+      imageUrl: resolveAssetUrl(imagePath, req),
     });
   }
 );
@@ -174,9 +187,20 @@ router.post(
         return res.status(400).json({ message: "title and artist are required" });
       }
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const audioUrl = `${baseUrl}/uploads/${audio.filename}`;
-      const imageUrl = image ? `${baseUrl}/uploads/${image.filename}` : "";
+      const audioPath = await persistUploadedFile(audio, {
+        kind: "song-audio",
+        songTitle: title,
+        artist,
+        uploadedBy: req.user.id,
+      });
+      const imagePath = image
+        ? await persistUploadedFile(image, {
+            kind: "song-cover",
+            songTitle: title,
+            artist,
+            uploadedBy: req.user.id,
+          })
+        : "";
 
       const songId = `song-${Date.now()}`;
 
@@ -184,8 +208,8 @@ router.post(
         songId,
         title: sanitizeText(title, 120),
         artist: sanitizeText(artist, 120),
-        image: imageUrl,
-        src: audioUrl,
+        image: imagePath,
+        src: audioPath,
         duration: Math.max(0, parseNumber(duration, 0)),
         language: language ? sanitizeText(language, 40) : "unknown",
         createdBy: req.user.id,
@@ -194,7 +218,7 @@ router.post(
 
       return res.status(201).json({
         message: "Song created successfully",
-        song: mapSong(newSong),
+        song: mapSong(newSong, req),
       });
     } catch (error) {
       return res.status(500).json({ message: error.message });
@@ -226,9 +250,24 @@ router.post(
         return res.status(400).json({ message: "At least one audio file is required" });
       }
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const imageUrl = image ? `${baseUrl}/uploads/${image.filename}` : "https://picsum.photos/300/300";
+      const imagePath = image
+        ? await persistUploadedFile(image, {
+            kind: "bulk-song-cover",
+            artist,
+            uploadedBy: req.user.id,
+          })
+        : "https://picsum.photos/300/300";
       const metadataMap = await parseMetadataFile(metadataFile);
+      const audioPaths = [];
+
+      for (const audio of audioFiles) {
+        const persistedPath = await persistUploadedFile(audio, {
+          kind: "bulk-song-audio",
+          artist,
+          uploadedBy: req.user.id,
+        });
+        audioPaths.push(persistedPath);
+      }
 
       const songsToCreate = audioFiles.map((audio, index) => {
         const metadata =
@@ -240,8 +279,8 @@ router.post(
           songId: `song-${Date.now()}-${index}`,
           title: metadata?.title || sanitizeText(titleFromFilename(audio.originalname), 120),
           artist: metadata?.artist || sanitizeText(artist, 120),
-          image: metadata?.image || imageUrl,
-          src: `${baseUrl}/uploads/${audio.filename}`,
+          image: metadata?.image || imagePath,
+          src: audioPaths[index],
           duration: metadata?.duration || 0,
           language:
             metadata?.language || (language ? sanitizeText(language, 40) : "unknown"),
@@ -254,7 +293,7 @@ router.post(
 
       return res.status(201).json({
         message: `${newSongs.length} songs created successfully`,
-        songs: newSongs.map(mapSong),
+        songs: newSongs.map((song) => mapSong(song, req)),
       });
     } catch (error) {
       return res.status(500).json({ message: error.message });

@@ -58,7 +58,7 @@ const Home = () => {
             {continueSongs.slice(0, 4).map((song) => (
               <button
                 key={`${song.id}-continue`}
-                onClick={() => playSong(song.id)}
+                onClick={() => playSong(song)}
                 className="flex items-center gap-4 rounded-lg bg-zinc-800/70 p-2 text-left transition hover:bg-zinc-700/80"
               >
                 <img
@@ -127,7 +127,7 @@ const Home = () => {
             {recentSongs.slice(0, 6).map((song) => (
               <button
                 key={`${song.id}-recent`}
-                onClick={() => playSong(song.id)}
+                onClick={() => playSong(song)}
                 className="flex items-center gap-4 rounded-lg bg-zinc-900/60 p-2 text-left transition hover:bg-zinc-800/80"
               >
                 <img

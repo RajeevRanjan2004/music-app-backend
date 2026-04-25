@@ -11,10 +11,14 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ArtistDashboard from "./pages/ArtistDashboard";
+import AndroidBackHandler from "./components/AndroidBackHandler";
+import NavigationTracker from "./components/NavigationTracker";
 
 function App() {
   return (
     <BrowserRouter>
+      <NavigationTracker />
+      <AndroidBackHandler />
       <Routes>
 
         {}

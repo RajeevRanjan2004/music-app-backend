@@ -1,22 +1,46 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import {
+  browserCanNavigateBack,
+  canNavigateBack,
+  consumeNavigationBackTarget,
+} from "../lib/navigation";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  const handleBack = () => {
+    if (browserCanNavigateBack()) {
+      navigate(-1);
+      return;
+    }
+
+    const previousPath = consumeNavigationBackTarget(location);
+    if (previousPath) {
+      navigate(previousPath, { replace: true });
+      return;
+    }
+
+    if (location.pathname !== "/") {
+      navigate("/");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-black/20 px-4 backdrop-blur-lg md:px-6">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="rounded-full bg-black/70 p-2 text-sm hover:bg-zinc-800"
+          disabled={!canNavigateBack() && location.pathname === "/"}
         >
           <FaChevronLeft />
         </button>

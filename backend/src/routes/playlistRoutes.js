@@ -3,15 +3,16 @@ const authMiddleware = require("../middleware/authMiddleware");
 const Playlist = require("../models/Playlist");
 const Song = require("../models/Song");
 const { sanitizeText } = require("../utils/validation");
+const { resolveAssetUrl } = require("../utils/assets");
 
 const router = express.Router();
 
-function mapPlaylist(playlist) {
+function mapPlaylist(playlist, req) {
   return {
     playlistId: playlist.playlistId,
     name: playlist.name,
     description: playlist.description || "",
-    cover: playlist.cover || "",
+    cover: resolveAssetUrl(playlist.cover, req),
     isPublic: Boolean(playlist.isPublic),
     songs: playlist.songs || [],
     createdBy: playlist.createdBy,
@@ -29,8 +30,8 @@ router.get("/", authMiddleware, async (req, res) => {
     .lean();
 
   return res.status(200).json({
-    own: own.map(mapPlaylist),
-    public: published.map(mapPlaylist),
+    own: own.map((playlist) => mapPlaylist(playlist, req)),
+    public: published.map((playlist) => mapPlaylist(playlist, req)),
   });
 });
 
@@ -51,7 +52,7 @@ router.post("/", authMiddleware, async (req, res) => {
     createdByName: req.user.name || "",
   });
 
-  return res.status(201).json({ playlist: mapPlaylist(playlist) });
+  return res.status(201).json({ playlist: mapPlaylist(playlist, req) });
 });
 
 router.put("/:playlistId", authMiddleware, async (req, res) => {
@@ -72,7 +73,7 @@ router.put("/:playlistId", authMiddleware, async (req, res) => {
   if (isPublic !== undefined) playlist.isPublic = Boolean(isPublic);
 
   await playlist.save();
-  return res.status(200).json({ playlist: mapPlaylist(playlist) });
+  return res.status(200).json({ playlist: mapPlaylist(playlist, req) });
 });
 
 router.delete("/:playlistId", authMiddleware, async (req, res) => {
@@ -110,7 +111,7 @@ router.post("/:playlistId/songs/:songId", authMiddleware, async (req, res) => {
     await playlist.save();
   }
 
-  return res.status(200).json({ playlist: mapPlaylist(playlist) });
+  return res.status(200).json({ playlist: mapPlaylist(playlist, req) });
 });
 
 router.delete("/:playlistId/songs/:songId", authMiddleware, async (req, res) => {
@@ -144,13 +145,13 @@ router.get("/:playlistId", authMiddleware, async (req, res) => {
     .lean();
 
   return res.status(200).json({
-    playlist: mapPlaylist(playlist),
+    playlist: mapPlaylist(playlist, req),
     songs: songs.map((song) => ({
       id: song.songId,
       title: song.title,
       artist: song.artist,
-      image: song.image,
-      src: song.src,
+      image: resolveAssetUrl(song.image, req),
+      src: resolveAssetUrl(song.src, req),
       duration: song.duration,
       language: song.language,
       likesCount: song.likesCount || 0,

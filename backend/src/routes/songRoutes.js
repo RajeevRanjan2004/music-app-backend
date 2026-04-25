@@ -4,16 +4,17 @@ const requireRole = require("../middleware/roleMiddleware");
 const User = require("../models/User");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
+const { resolveAssetUrl } = require("../utils/assets");
 
 const router = express.Router();
 
-function mapSong(song) {
+function mapSong(song, req) {
   return {
     id: song.songId,
     title: song.title,
     artist: song.artist,
-    image: song.image,
-    src: song.src,
+    image: resolveAssetUrl(song.image, req),
+    src: resolveAssetUrl(song.src, req),
     duration: song.duration,
     language: song.language,
     likesCount: song.likesCount || 0,
@@ -59,7 +60,7 @@ router.get("/", async (req, res) => {
     .limit(limit)
     .lean();
 
-  return res.status(200).json({ songs: songs.map(mapSong) });
+  return res.status(200).json({ songs: songs.map((song) => mapSong(song, req)) });
 });
 
 router.get("/artist/my", authMiddleware, requireRole("artist"), async (req, res) => {
@@ -67,7 +68,7 @@ router.get("/artist/my", authMiddleware, requireRole("artist"), async (req, res)
     .select(selectProjection())
     .sort({ createdAt: -1 })
     .lean();
-  return res.status(200).json({ songs: songs.map(mapSong) });
+  return res.status(200).json({ songs: songs.map((song) => mapSong(song, req)) });
 });
 
 router.get("/search", async (req, res) => {
@@ -89,7 +90,7 @@ router.get("/search", async (req, res) => {
     .limit(limit)
     .lean();
 
-  return res.status(200).json({ songs: filteredSongs.map(mapSong) });
+  return res.status(200).json({ songs: filteredSongs.map((song) => mapSong(song, req)) });
 });
 
 router.get("/library", authMiddleware, async (req, res) => {
@@ -103,7 +104,7 @@ router.get("/library", authMiddleware, async (req, res) => {
     .select(selectProjection())
     .lean();
 
-  return res.status(200).json({ songs: librarySongs.map(mapSong) });
+  return res.status(200).json({ songs: librarySongs.map((song) => mapSong(song, req)) });
 });
 
 router.post("/library/:songId", authMiddleware, async (req, res) => {
@@ -166,7 +167,7 @@ router.get("/recent", authMiddleware, async (req, res) => {
       const song = songMap.get(play.songId);
       if (!song) return null;
       return {
-        ...mapSong(song),
+        ...mapSong(song, req),
         lastPosition: play.lastPosition || 0,
         playedAt: play.playedAt,
         completed: Boolean(play.completed),
@@ -202,7 +203,7 @@ router.get("/continue", authMiddleware, async (req, res) => {
       const song = songMap.get(play.songId);
       if (!song) return null;
       return {
-        ...mapSong(song),
+        ...mapSong(song, req),
         lastPosition: play.lastPosition || 0,
         completed: Boolean(play.completed),
       };
@@ -278,7 +279,7 @@ router.post("/", authMiddleware, requireRole("artist"), async (req, res) => {
 
   return res.status(201).json({
     message: "Song created successfully",
-    song: mapSong(newSong),
+    song: mapSong(newSong, req),
   });
 });
 
@@ -306,7 +307,7 @@ router.put("/:songId", authMiddleware, requireRole("artist"), async (req, res) =
 
   return res.status(200).json({
     message: "Song updated successfully",
-    song: mapSong(song),
+    song: mapSong(song, req),
   });
 });
 
@@ -405,7 +406,7 @@ router.get("/liked/songs", authMiddleware, async (req, res) => {
     .select(selectProjection())
     .lean();
 
-  return res.status(200).json({ songs: likedSongs.map(mapSong) });
+  return res.status(200).json({ songs: likedSongs.map((song) => mapSong(song, req)) });
 });
 
 module.exports = router;

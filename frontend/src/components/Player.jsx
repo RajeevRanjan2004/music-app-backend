@@ -37,6 +37,7 @@ const Player = () => {
   const [showQueue, setShowQueue] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackError, setPlaybackError] = useState("");
   const lastSavedSecondRef = useRef(-1);
 
   const hasSongs = songs.length > 0;
@@ -75,10 +76,19 @@ const Player = () => {
     if (isPlaying) {
       audioRef.current.pause();
       saveProgress(false);
+      setPlaybackError("");
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      void audioRef.current.play()
+        .then(() => {
+          setPlaybackError("");
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          setPlaybackError("This song could not be played right now.");
+          setIsPlaying(false);
+        });
     }
-    setIsPlaying(!isPlaying);
   };
 
   const nextSong = () => {
@@ -139,7 +149,10 @@ const Player = () => {
     saveProgress(true);
     if (repeat) {
       audioRef.current.currentTime = 0;
-      audioRef.current.play();
+      void audioRef.current.play().catch(() => {
+        setPlaybackError("This song could not be replayed right now.");
+        setIsPlaying(false);
+      });
     } else {
       nextSong();
     }
@@ -147,12 +160,20 @@ const Player = () => {
 
   useEffect(() => {
     if (!hasSongs || !audioRef.current) return;
+    audioRef.current.load();
     lastSavedSecondRef.current = -1;
     setCurrentTime(0);
     setDuration(audioRef.current.duration || currentSong?.duration || 0);
     setProgress(0);
-    if (isPlaying) audioRef.current.play();
-  }, [currentIndex, currentSong?.duration, isPlaying, hasSongs]);
+    setPlaybackError("");
+
+    if (isPlaying) {
+      void audioRef.current.play().catch(() => {
+        setPlaybackError("This song could not be played right now.");
+        setIsPlaying(false);
+      });
+    }
+  }, [currentIndex, currentSong?.duration, currentSong?.src, hasSongs, isPlaying, setIsPlaying]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -221,6 +242,9 @@ const Player = () => {
               {formatTime(duration)}
             </span>
           </div>
+          {playbackError && (
+            <p className="mt-2 text-center text-xs text-red-300">{playbackError}</p>
+          )}
         </div>
 
         <div className="flex items-center justify-start gap-3 md:justify-end">
@@ -282,10 +306,20 @@ const Player = () => {
       )}
 
       <audio
+        key={`${currentSong.id}-${currentSong.src}`}
         ref={audioRef}
         src={currentSong.src}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
+        onLoadedMetadata={() => {
+          if (!audioRef.current) return;
+          setDuration(audioRef.current.duration || currentSong.duration || 0);
+          setPlaybackError("");
+        }}
+        onError={() => {
+          setPlaybackError("Audio file load nahi ho paya. Naya upload try karo.");
+          setIsPlaying(false);
+        }}
       />
     </div>
   );

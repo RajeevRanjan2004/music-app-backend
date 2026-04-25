@@ -40,15 +40,15 @@ const AlbumDetail = () => {
 
   const handlePlayAll = () => {
     if (!songs.length) return;
-    playSong(songs[0].id);
-    songs.slice(1).forEach((song) => addToQueue(song.id));
+    playSong(songs[0]);
+    songs.slice(1).forEach((song) => addToQueue(song));
   };
 
   const handleShuffleAll = () => {
     if (!songs.length) return;
     const shuffled = [...songs].sort(() => Math.random() - 0.5);
-    playSong(shuffled[0].id);
-    shuffled.slice(1).forEach((song) => addToQueue(song.id));
+    playSong(shuffled[0]);
+    shuffled.slice(1).forEach((song) => addToQueue(song));
   };
 
   if (loading) {
@@ -99,7 +99,7 @@ const AlbumDetail = () => {
             className="grid grid-cols-[40px_1fr_auto] items-center gap-3 border-b border-zinc-800/80 bg-zinc-900/30 px-4 py-3 last:border-b-0 hover:bg-zinc-800/60"
           >
             <span className="text-zinc-400">{String(index + 1).padStart(2, "0")}</span>
-            <button onClick={() => playSong(song.id)} className="flex items-center gap-3 text-left">
+            <button onClick={() => playSong(song)} className="flex items-center gap-3 text-left">
               <img src={song.image} alt={song.title} className="h-10 w-10 rounded object-cover" />
               <div>
                 <p className="font-medium text-white">{song.title}</p>
@@ -110,13 +110,13 @@ const AlbumDetail = () => {
             </button>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => playNextInQueue(song.id)}
+                onClick={() => playNextInQueue(song)}
                 className="text-xs text-zinc-300 hover:text-white"
               >
                 Next
               </button>
               <button
-                onClick={() => addToQueue(song.id)}
+                onClick={() => addToQueue(song)}
                 className="text-xs text-zinc-300 hover:text-white"
               >
                 Queue

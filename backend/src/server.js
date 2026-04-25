@@ -7,6 +7,7 @@ const songRoutes = require("./routes/songRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const albumRoutes = require("./routes/albumRoutes");
 const playlistRoutes = require("./routes/playlistRoutes");
+const assetRoutes = require("./routes/assetRoutes");
 const connectDb = require("./config/db");
 const { uploadsDir, ensureUploadsDir } = require("./config/paths");
 const seedSongsIfEmpty = require("./utils/seedSongs");
@@ -58,6 +59,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api/assets", assetRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/uploads", uploadRoutes);

@@ -10,6 +10,13 @@ const API_BASE_URL =
       import.meta.env.VITE_API_BASE_URL ||
       ANDROID_EMULATOR_API_BASE_URL
     : import.meta.env.VITE_API_BASE_URL || WEB_API_BASE_URL;
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return "";
+  }
+})();
 
 const NETWORK_ERROR_MESSAGE =
   platform === "android"
@@ -55,4 +62,30 @@ async function apiRequest(path, options = {}) {
   }
 }
 
-export { API_BASE_URL, apiRequest };
+function resolveApiAssetUrl(value) {
+  const asset = String(value || "").trim();
+
+  if (!asset) {
+    return "";
+  }
+
+  if (asset.startsWith("blob:") || asset.startsWith("data:")) {
+    return asset;
+  }
+
+  try {
+    const parsed = new URL(asset);
+    if (parsed.pathname.startsWith("/uploads/") && API_ORIGIN) {
+      return `${API_ORIGIN}${parsed.pathname}`;
+    }
+    return asset;
+  } catch {
+    if (asset.startsWith("/") && API_ORIGIN) {
+      return `${API_ORIGIN}${asset}`;
+    }
+
+    return asset;
+  }
+}
+
+export { API_BASE_URL, apiRequest, resolveApiAssetUrl };

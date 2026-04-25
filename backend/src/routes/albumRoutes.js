@@ -9,6 +9,8 @@ const { uploadsDir } = require("../config/paths");
 const Album = require("../models/Album");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
+const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
 
@@ -52,12 +54,12 @@ const upload = multer({
   },
 });
 
-function mapAlbum(album) {
+function mapAlbum(album, req) {
   return {
     albumId: album.albumId,
     title: album.title,
     artist: album.artist,
-    cover: album.cover,
+    cover: resolveAssetUrl(album.cover, req),
     description: album.description,
     songs: album.songs,
     totalSongs: album.totalSongs,
@@ -82,47 +84,51 @@ function normalizeKey(value) {
 async function parseMetadataFile(file) {
   if (!file) return new Map();
 
-  const ext = path.extname(file.originalname || file.filename || "").toLowerCase();
-  let workbook;
+  try {
+    const ext = path.extname(file.originalname || file.filename || "").toLowerCase();
+    let workbook;
 
-  if (ext === ".csv" || ext === ".tsv") {
-    const fileContent = await fs.readFile(file.path, "utf8");
-    workbook = XLSX.read(fileContent, {
-      type: "string",
-      FS: ext === ".tsv" ? "\t" : ",",
+    if (ext === ".csv" || ext === ".tsv") {
+      const fileContent = await fs.readFile(file.path, "utf8");
+      workbook = XLSX.read(fileContent, {
+        type: "string",
+        FS: ext === ".tsv" ? "\t" : ",",
+      });
+    } else {
+      workbook = XLSX.readFile(file.path);
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const metadataMap = new Map();
+
+    rows.forEach((row) => {
+      const rowKey =
+        row.filename ||
+        row.fileName ||
+        row.file ||
+        row.audio ||
+        row.song ||
+        row.track ||
+        "";
+
+      const normalized = normalizeKey(rowKey);
+      if (!normalized) return;
+
+      metadataMap.set(normalized, {
+        title: sanitizeText(row.title || row.songTitle || titleFromFilename(rowKey), 120),
+        artist: sanitizeText(row.artist || "", 120),
+        language: sanitizeText(row.language || "", 40),
+        duration: Math.max(0, parseNumber(row.duration, 0)),
+        image: sanitizeText(row.image || row.cover || "", 500),
+      });
     });
-  } else {
-    workbook = XLSX.readFile(file.path);
+
+    return metadataMap;
+  } finally {
+    await fs.unlink(file.path).catch(() => {});
   }
-
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  const metadataMap = new Map();
-
-  rows.forEach((row) => {
-    const rowKey =
-      row.filename ||
-      row.fileName ||
-      row.file ||
-      row.audio ||
-      row.song ||
-      row.track ||
-      "";
-
-    const normalized = normalizeKey(rowKey);
-    if (!normalized) return;
-
-    metadataMap.set(normalized, {
-      title: sanitizeText(row.title || row.songTitle || titleFromFilename(rowKey), 120),
-      artist: sanitizeText(row.artist || "", 120),
-      language: sanitizeText(row.language || "", 40),
-      duration: Math.max(0, parseNumber(row.duration, 0)),
-      image: sanitizeText(row.image || row.cover || "", 500),
-    });
-  });
-
-  return metadataMap;
 }
 
 // Get all albums
@@ -131,7 +137,7 @@ router.get("/", async (req, res) => {
     const albums = await Album.find({})
       .select("albumId title artist cover description songs totalSongs")
       .lean();
-    return res.status(200).json({ albums });
+    return res.status(200).json({ albums: albums.map((album) => mapAlbum(album, req)) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -144,7 +150,7 @@ router.get("/artist/all", authMiddleware, requireRole("artist"), async (req, res
       .select("albumId title artist cover description songs totalSongs")
       .lean();
 
-    return res.status(200).json({ albums });
+    return res.status(200).json({ albums: albums.map((album) => mapAlbum(album, req)) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -165,13 +171,13 @@ router.get("/:albumId", async (req, res) => {
       .lean();
 
     return res.status(200).json({
-      album,
+      album: mapAlbum(album, req),
       songs: songs.map((song) => ({
         id: song.songId,
         title: song.title,
         artist: song.artist,
-        image: song.image,
-        src: song.src,
+        image: resolveAssetUrl(song.image, req),
+        src: resolveAssetUrl(song.src, req),
         duration: song.duration,
         language: song.language,
         likesCount: song.likesCount,
@@ -209,7 +215,7 @@ router.post("/", authMiddleware, requireRole("artist"), async (req, res) => {
 
     return res.status(201).json({
       message: "Album created successfully",
-      album: mapAlbum(newAlbum),
+      album: mapAlbum(newAlbum, req),
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -241,13 +247,28 @@ router.post(
       }
 
       const albumId = `album-${Date.now()}`;
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
       const coverUrl = coverImage
-        ? `${baseUrl}/uploads/${coverImage.filename}`
+        ? await persistUploadedFile(coverImage, {
+            kind: "album-cover",
+            albumTitle: title,
+            artist,
+            uploadedBy: req.user.id,
+          })
         : cover
           ? sanitizeText(cover, 500)
           : "https://picsum.photos/600/600";
       const metadataMap = await parseMetadataFile(metadataFile);
+      const audioPaths = [];
+
+      for (const audio of audioFiles) {
+        const persistedPath = await persistUploadedFile(audio, {
+          kind: "album-song-audio",
+          albumTitle: title,
+          artist,
+          uploadedBy: req.user.id,
+        });
+        audioPaths.push(persistedPath);
+      }
 
       const album = await Album.create({
         albumId,
@@ -272,7 +293,7 @@ router.post(
           title: metadata?.title || sanitizeText(titleFromFilename(audio.originalname), 120),
           artist: metadata?.artist || sanitizeText(artist, 120),
           image: metadata?.image || coverUrl,
-          src: `${baseUrl}/uploads/${audio.filename}`,
+          src: audioPaths[index],
           duration: metadata?.duration || 0,
           language: metadata?.language || "unknown",
           createdBy: req.user.id,
@@ -288,13 +309,13 @@ router.post(
 
       return res.status(201).json({
         message: "Album and songs created successfully",
-        album: mapAlbum(album),
+        album: mapAlbum(album, req),
         songs: newSongs.map((song) => ({
           id: song.songId,
           title: song.title,
           artist: song.artist,
-          image: song.image,
-          src: song.src,
+          image: resolveAssetUrl(song.image, req),
+          src: resolveAssetUrl(song.src, req),
           duration: song.duration,
           language: song.language,
         })),
@@ -332,7 +353,7 @@ router.put("/:albumId", authMiddleware, requireRole("artist"), async (req, res) 
 
     return res.status(200).json({
       message: "Album updated successfully",
-      album: mapAlbum(album),
+      album: mapAlbum(album, req),
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -401,7 +422,7 @@ router.post("/:albumId/songs/:songId", authMiddleware, requireRole("artist"), as
 
     return res.status(200).json({
       message: "Song added to album",
-      album: mapAlbum(album),
+      album: mapAlbum(album, req),
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -441,7 +462,7 @@ router.delete("/:albumId/songs/:songId", authMiddleware, requireRole("artist"), 
 
     return res.status(200).json({
       message: "Song removed from album",
-      album: mapAlbum(album),
+      album: mapAlbum(album, req),
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
