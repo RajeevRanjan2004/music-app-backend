@@ -9,6 +9,7 @@ const AUDIUS_TRENDING_CACHE_MS = Math.max(
 
 let lastTrendingSyncAt = 0;
 let trendingSyncPromise = null;
+const REGIONAL_SEARCH_HINTS = ["hindi", "bhojpuri", "haryanvi", "punjabi"];
 
 function buildAudiusUrl(pathname, params = {}) {
   const normalizedBase = AUDIUS_API_BASE_URL.replace(/\/+$/, "");
@@ -58,6 +59,34 @@ async function fetchAudiusJson(pathname, params = {}) {
 function pickFirstNonEmpty(values, fallback = "") {
   const match = values.find((value) => typeof value === "string" && value.trim());
   return match ? match.trim() : fallback;
+}
+
+function dedupeTracksById(tracks) {
+  const seen = new Set();
+
+  return tracks.filter((track) => {
+    const id = String(track?.id || "").trim();
+    if (!id || seen.has(id)) {
+      return false;
+    }
+
+    seen.add(id);
+    return true;
+  });
+}
+
+function buildRegionalSearchQueries(query, regionHint) {
+  const trimmedQuery = String(query || "").trim();
+  if (!trimmedQuery) {
+    return [];
+  }
+
+  const normalizedHint = String(regionHint || "").trim().toLowerCase();
+  const hints = normalizedHint
+    ? [normalizedHint]
+    : REGIONAL_SEARCH_HINTS;
+
+  return [...new Set([trimmedQuery, ...hints.map((hint) => `${trimmedQuery} ${hint}`)])];
 }
 
 function normalizeAudiusTrack(track) {
@@ -169,18 +198,34 @@ async function syncTrendingAudiusTracks({ force = false, limit = 24 } = {}) {
   return trendingSyncPromise;
 }
 
-async function searchAudiusTracks({ query, limit = 20 } = {}) {
+async function searchAudiusTracks({ query, regionHint = "", limit = 20 } = {}) {
   const trimmedQuery = String(query || "").trim();
   if (!trimmedQuery) {
     return [];
   }
 
-  const data = await fetchAudiusJson("/tracks/search", {
-    query: trimmedQuery,
-    limit: Math.max(1, Math.min(50, Number(limit) || 20)),
-  });
+  const queries = buildRegionalSearchQueries(trimmedQuery, regionHint);
+  const perQueryLimit = Math.max(
+    5,
+    Math.min(25, Math.ceil((Math.max(1, Number(limit) || 20)) / queries.length))
+  );
 
-  return upsertAudiusTracks(data.data || []);
+  const responses = await Promise.allSettled(
+    queries.map((candidate) =>
+      fetchAudiusJson("/tracks/search", {
+        query: candidate,
+        limit: perQueryLimit,
+      })
+    )
+  );
+
+  const tracks = dedupeTracksById(
+    responses.flatMap((result) =>
+      result.status === "fulfilled" ? result.value.data || [] : []
+    )
+  );
+
+  return upsertAudiusTracks(tracks);
 }
 
 async function getAudiusTrackStreamUrl(trackId) {

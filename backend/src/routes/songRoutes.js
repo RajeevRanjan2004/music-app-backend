@@ -56,7 +56,7 @@ function selectProjection() {
 
 router.get("/", async (req, res) => {
   const filters = buildSongQuery(req.query);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 100));
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
 
   if (
     req.query.sort === "likes" &&
@@ -86,11 +86,16 @@ router.get("/artist/my", authMiddleware, requireRole("artist"), async (req, res)
 
 router.get("/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
+  const regionHint = String(req.query.region || "").trim();
   const filters = buildSongQuery(req.query);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 100));
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
 
   if (q) {
-    await searchAudiusTracks({ query: q, limit: Math.min(limit, 20) }).catch(() => {});
+    await searchAudiusTracks({
+      query: q,
+      regionHint,
+      limit: Math.min(limit, 80),
+    }).catch(() => {});
   } else if (
     req.query.sort === "likes" &&
     !req.query.albumId &&
