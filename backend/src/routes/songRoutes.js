@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
 const { resolveAssetUrl } = require("../utils/assets");
+const { searchAudiusTracks, syncTrendingAudiusTracks } = require("../utils/audius");
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ function mapSong(song, req) {
     createdBy: song.createdBy ? String(song.createdBy) : null,
     createdByName: song.createdByName || "",
     createdAt: song.createdAt,
+    sourcePlatform: song.sourcePlatform || "uploaded",
   };
 }
 
@@ -42,18 +44,29 @@ function buildSongQuery(query) {
 }
 
 function buildSort(sort) {
-  if (sort === "likes") return { likesCount: -1, createdAt: -1 };
+  if (sort === "likes") return { catalogScore: -1, likesCount: -1, createdAt: -1 };
   if (sort === "title") return { title: 1 };
+  if (sort === "recent") return { createdAt: -1 };
   return { createdAt: -1 };
 }
 
 function selectProjection() {
-  return "songId title artist image src duration language likesCount albumId createdBy createdByName createdAt";
+  return "songId title artist image src duration language likesCount albumId createdBy createdByName createdAt sourcePlatform sourceRefId catalogScore";
 }
 
 router.get("/", async (req, res) => {
   const filters = buildSongQuery(req.query);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 100));
+
+  if (
+    req.query.sort === "likes" &&
+    !req.query.albumId &&
+    !req.query.artist &&
+    !req.query.language
+  ) {
+    await syncTrendingAudiusTracks({ limit }).catch(() => {});
+  }
+
   const songs = await Song.find(filters)
     .select(selectProjection())
     .sort(buildSort(req.query.sort))
@@ -75,6 +88,17 @@ router.get("/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const filters = buildSongQuery(req.query);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 100));
+
+  if (q) {
+    await searchAudiusTracks({ query: q, limit: Math.min(limit, 20) }).catch(() => {});
+  } else if (
+    req.query.sort === "likes" &&
+    !req.query.albumId &&
+    !req.query.artist &&
+    !req.query.language
+  ) {
+    await syncTrendingAudiusTracks({ limit }).catch(() => {});
+  }
 
   if (q) {
     filters.$or = [
@@ -275,6 +299,7 @@ router.post("/", authMiddleware, requireRole("artist"), async (req, res) => {
     language: language ? sanitizeText(language, 40) : "unknown",
     createdBy: req.user.id,
     createdByName: req.user.name || "",
+    sourcePlatform: "uploaded",
   });
 
   return res.status(201).json({
@@ -290,6 +315,10 @@ router.put("/:songId", authMiddleware, requireRole("artist"), async (req, res) =
   const song = await Song.findOne({ songId });
   if (!song) {
     return res.status(404).json({ message: "Song not found" });
+  }
+
+  if (song.sourcePlatform === "audius") {
+    return res.status(403).json({ message: "Online catalog songs cannot be edited" });
   }
 
   if (song.createdBy && song.createdBy.toString() !== req.user.id) {
@@ -317,6 +346,10 @@ router.delete("/:songId", authMiddleware, requireRole("artist"), async (req, res
   const song = await Song.findOne({ songId });
   if (!song) {
     return res.status(404).json({ message: "Song not found" });
+  }
+
+  if (song.sourcePlatform === "audius") {
+    return res.status(403).json({ message: "Online catalog songs cannot be deleted" });
   }
 
   if (song.createdBy && song.createdBy.toString() !== req.user.id) {

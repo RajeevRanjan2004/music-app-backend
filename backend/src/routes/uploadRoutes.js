@@ -8,7 +8,7 @@ const requireRole = require("../middleware/roleMiddleware");
 const { uploadsDir } = require("../config/paths");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
-const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { resolveAssetUrl } = require("../utils/assets");
 const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
@@ -62,6 +62,7 @@ function mapSong(song, req) {
     src: resolveAssetUrl(song.src, req),
     duration: song.duration,
     language: song.language,
+    sourcePlatform: song.sourcePlatform || "uploaded",
   };
 }
 
@@ -214,6 +215,7 @@ router.post(
         language: language ? sanitizeText(language, 40) : "unknown",
         createdBy: req.user.id,
         createdByName: req.user.name || "",
+        sourcePlatform: "uploaded",
       });
 
       return res.status(201).json({
@@ -286,6 +288,7 @@ router.post(
             metadata?.language || (language ? sanitizeText(language, 40) : "unknown"),
           createdBy: req.user.id,
           createdByName: req.user.name || "",
+          sourcePlatform: "uploaded",
         };
       });
 

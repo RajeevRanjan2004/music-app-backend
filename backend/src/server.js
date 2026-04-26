@@ -8,9 +8,10 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const albumRoutes = require("./routes/albumRoutes");
 const playlistRoutes = require("./routes/playlistRoutes");
 const assetRoutes = require("./routes/assetRoutes");
+const externalRoutes = require("./routes/externalRoutes");
 const connectDb = require("./config/db");
 const { uploadsDir, ensureUploadsDir } = require("./config/paths");
-const seedSongsIfEmpty = require("./utils/seedSongs");
+const initializeSongCatalog = require("./utils/initializeSongCatalog");
 
 dotenv.config();
 
@@ -60,6 +61,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/assets", assetRoutes);
+app.use("/api/external", externalRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/uploads", uploadRoutes);
@@ -82,7 +84,7 @@ async function startServer() {
   try {
     ensureUploadsDir();
     await connectDb();
-    await seedSongsIfEmpty();
+    await initializeSongCatalog();
 
     app.listen(port, () => {
       console.log(`Backend server running at http://localhost:${port}`);

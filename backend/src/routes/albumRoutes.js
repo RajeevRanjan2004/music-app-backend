@@ -9,7 +9,7 @@ const { uploadsDir } = require("../config/paths");
 const Album = require("../models/Album");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
-const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { resolveAssetUrl } = require("../utils/assets");
 const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
@@ -167,7 +167,7 @@ router.get("/:albumId", async (req, res) => {
     }
 
     const songs = await Song.find({ songId: { $in: album.songs } })
-      .select("songId title artist image src duration language likesCount")
+      .select("songId title artist image src duration language likesCount sourcePlatform")
       .lean();
 
     return res.status(200).json({
@@ -181,6 +181,7 @@ router.get("/:albumId", async (req, res) => {
         duration: song.duration,
         language: song.language,
         likesCount: song.likesCount,
+        sourcePlatform: song.sourcePlatform || "uploaded",
       })),
     });
   } catch (error) {
@@ -299,6 +300,7 @@ router.post(
           createdBy: req.user.id,
           createdByName: req.user.name || "",
           albumId,
+          sourcePlatform: "uploaded",
         };
       });
 
@@ -318,6 +320,7 @@ router.post(
           src: resolveAssetUrl(song.src, req),
           duration: song.duration,
           language: song.language,
+          sourcePlatform: song.sourcePlatform || "uploaded",
         })),
       });
     } catch (error) {

@@ -10,6 +10,7 @@ Express + Mongoose backend for auth and songs APIs.
 2. Set these values in `.env`:
    - `JWT_SECRET`
    - `MONGODB_URI` (local or Atlas connection string)
+   - Optional: `AUDIUS_API_KEY` or `AUDIUS_BEARER_TOKEN` for higher Audius API limits
    - `SMTP_HOST`
    - `SMTP_PORT`
    - `SMTP_USER`
@@ -56,7 +57,7 @@ Server runs on `http://localhost:5000` by default.
 ## Data Storage
 
 - MongoDB via Mongoose (`users`, `songs` collections)
-- Songs auto-seed on first server start if songs collection is empty
+- App removes old demo songs and syncs online Audius tracks for streaming
 - `users` have role: `user` or `artist`
 - Basic in-memory rate limiting on auth/forgot-password routes
 - Forgot-password now sends a 6-digit OTP to the user's email and OTP expires in 10 minutes

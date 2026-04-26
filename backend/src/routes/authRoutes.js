@@ -15,7 +15,7 @@ const {
   sanitizeText,
 } = require("../utils/validation");
 const { sendPasswordResetOtpEmail } = require("../utils/email");
-const { buildUploadPath, resolveAssetUrl } = require("../utils/assets");
+const { resolveAssetUrl } = require("../utils/assets");
 const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();

@@ -21,6 +21,12 @@ services:
         sync: false
       - key: APP_URL
         sync: false
+      - key: AUDIUS_API_BASE_URL
+        value: https://api.audius.co/v1
+      - key: AUDIUS_API_KEY
+        sync: false
+      - key: AUDIUS_BEARER_TOKEN
+        sync: false
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_PASSWORD

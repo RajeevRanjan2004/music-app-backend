@@ -33,6 +33,7 @@ export const PlayerProvider = ({ children }) => {
       image: resolveApiAssetUrl(song.image || song.cover || "https://picsum.photos/300/300"),
       src: resolveApiAssetUrl(song.src || song.audioUrl || ""),
       duration: Number(song.duration) || 0,
+      sourcePlatform: song.sourcePlatform || "uploaded",
     };
   }, []);
 

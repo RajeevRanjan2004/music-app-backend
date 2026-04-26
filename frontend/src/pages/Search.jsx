@@ -41,23 +41,28 @@ const Search = () => {
   }, []);
 
   useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      setStatus("");
-      try {
-        const data = await apiRequest(`/songs/search?${queryString}`);
-        setSongs(data.songs || []);
-        if (!data.songs?.length) {
-          setStatus("No matching songs found.");
+    const timeoutId = window.setTimeout(() => {
+      const run = async () => {
+        setLoading(true);
+        setStatus("");
+        try {
+          const data = await apiRequest(`/songs/search?${queryString}`);
+          setSongs(data.songs || []);
+          if (!data.songs?.length) {
+            setStatus("No matching songs found.");
+          }
+        } catch (error) {
+          setStatus(error.message);
+          setSongs([]);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        setStatus(error.message);
-        setSongs([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
+      };
+
+      void run();
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
   }, [queryString]);
 
   return (
@@ -170,6 +175,11 @@ const Search = () => {
                   <p className="text-sm text-zinc-400">
                     {song.artist} - {song.language || "Unknown"}
                   </p>
+                  {song.sourcePlatform === "audius" && (
+                    <p className="text-xs uppercase tracking-wide text-emerald-400">
+                      Online via Audius
+                    </p>
+                  )}
                 </div>
               </button>
               <div className="flex items-center gap-3 text-sm">

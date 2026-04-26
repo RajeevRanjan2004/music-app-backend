@@ -50,7 +50,21 @@ const songSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    catalogScore: {
+      type: Number,
+      default: 0,
+    },
     albumId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    sourcePlatform: {
+      type: String,
+      default: "uploaded",
+      trim: true,
+    },
+    sourceRefId: {
       type: String,
       default: null,
       trim: true,
