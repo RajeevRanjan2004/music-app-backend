@@ -23,9 +23,19 @@ function normalizeUploadPath(value) {
 
   try {
     const parsed = new URL(asset);
-    if (parsed.pathname.startsWith("/")) {
+    const isKnownLocalHost = ["localhost", "127.0.0.1", "10.0.2.2"].includes(
+      parsed.hostname
+    );
+    const isKnownLocalAssetPath =
+      parsed.pathname.startsWith("/uploads/") ||
+      parsed.pathname.startsWith("/api/assets/") ||
+      parsed.pathname.startsWith("/api/external/");
+
+    if (isKnownLocalHost && isKnownLocalAssetPath) {
       return parsed.pathname;
     }
+
+    return parsed.toString();
   } catch {
     return asset;
   }
