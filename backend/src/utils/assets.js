@@ -1,3 +1,5 @@
+const DEFAULT_SONG_IMAGE = "https://picsum.photos/seed/musicfy-cover/600/600";
+
 function getBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
@@ -57,7 +59,13 @@ function resolveAssetUrl(value, req) {
   return asset;
 }
 
+function resolveSongImageUrl(value, req) {
+  return resolveAssetUrl(value, req) || DEFAULT_SONG_IMAGE;
+}
+
 module.exports = {
+  DEFAULT_SONG_IMAGE,
   buildUploadPath,
   resolveAssetUrl,
+  resolveSongImageUrl,
 };

@@ -3,7 +3,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const Playlist = require("../models/Playlist");
 const Song = require("../models/Song");
 const { sanitizeText } = require("../utils/validation");
-const { resolveAssetUrl } = require("../utils/assets");
+const { resolveAssetUrl, resolveSongImageUrl } = require("../utils/assets");
 
 const router = express.Router();
 
@@ -150,7 +150,7 @@ router.get("/:playlistId", authMiddleware, async (req, res) => {
       id: song.songId,
       title: song.title,
       artist: song.artist,
-      image: resolveAssetUrl(song.image, req),
+      image: resolveSongImageUrl(song.image, req),
       src: resolveAssetUrl(song.src, req),
       duration: song.duration,
       language: song.language,

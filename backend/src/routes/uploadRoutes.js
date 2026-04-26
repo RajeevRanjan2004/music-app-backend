@@ -8,7 +8,7 @@ const requireRole = require("../middleware/roleMiddleware");
 const { uploadsDir } = require("../config/paths");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
-const { resolveAssetUrl } = require("../utils/assets");
+const { DEFAULT_SONG_IMAGE, resolveAssetUrl, resolveSongImageUrl } = require("../utils/assets");
 const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
@@ -58,7 +58,7 @@ function mapSong(song, req) {
     id: song.songId,
     title: song.title,
     artist: song.artist,
-    image: resolveAssetUrl(song.image, req),
+    image: resolveSongImageUrl(song.image, req),
     src: resolveAssetUrl(song.src, req),
     duration: song.duration,
     language: song.language,
@@ -160,7 +160,7 @@ router.post(
     return res.status(201).json({
       message: "Uploaded",
       audioUrl: resolveAssetUrl(audioPath, req),
-      imageUrl: resolveAssetUrl(imagePath, req),
+      imageUrl: resolveSongImageUrl(imagePath, req),
     });
   }
 );
@@ -209,7 +209,7 @@ router.post(
         songId,
         title: sanitizeText(title, 120),
         artist: sanitizeText(artist, 120),
-        image: imagePath,
+        image: imagePath || DEFAULT_SONG_IMAGE,
         src: audioPath,
         duration: Math.max(0, parseNumber(duration, 0)),
         language: language ? sanitizeText(language, 40) : "unknown",
@@ -258,7 +258,7 @@ router.post(
             artist,
             uploadedBy: req.user.id,
           })
-        : "https://picsum.photos/300/300";
+        : DEFAULT_SONG_IMAGE;
       const metadataMap = await parseMetadataFile(metadataFile);
       const audioPaths = [];
 

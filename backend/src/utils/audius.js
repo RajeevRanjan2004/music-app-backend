@@ -1,4 +1,5 @@
 const Song = require("../models/Song");
+const { DEFAULT_SONG_IMAGE } = require("./assets");
 
 const AUDIUS_API_BASE_URL =
   process.env.AUDIUS_API_BASE_URL || "https://api.audius.co/v1";
@@ -109,7 +110,7 @@ function normalizeAudiusTrack(track) {
         track.user?.profile_picture?.["480x480"],
         track.user?.profile_picture?.["150x150"],
       ],
-      "https://picsum.photos/300/300"
+      DEFAULT_SONG_IMAGE
     ),
     src: `/api/external/audius/tracks/${encodeURIComponent(track.id)}/stream`,
     duration: Number(track.duration) || 0,

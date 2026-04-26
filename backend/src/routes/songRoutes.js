@@ -4,7 +4,7 @@ const requireRole = require("../middleware/roleMiddleware");
 const User = require("../models/User");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
-const { resolveAssetUrl } = require("../utils/assets");
+const { DEFAULT_SONG_IMAGE, resolveAssetUrl, resolveSongImageUrl } = require("../utils/assets");
 const { searchAudiusTracks, syncTrendingAudiusTracks } = require("../utils/audius");
 
 const router = express.Router();
@@ -14,7 +14,7 @@ function mapSong(song, req) {
     id: song.songId,
     title: song.title,
     artist: song.artist,
-    image: resolveAssetUrl(song.image, req),
+    image: resolveSongImageUrl(song.image, req),
     src: resolveAssetUrl(song.src, req),
     duration: song.duration,
     language: song.language,
@@ -298,7 +298,7 @@ router.post("/", authMiddleware, requireRole("artist"), async (req, res) => {
     songId,
     title: sanitizeText(title, 120),
     artist: sanitizeText(artist, 120),
-    image: image ? sanitizeText(image, 500) : "https://picsum.photos/300/300",
+    image: image ? sanitizeText(image, 500) : DEFAULT_SONG_IMAGE,
     src: sanitizeText(src, 500),
     duration: Math.max(0, parseNumber(duration, 0)),
     language: language ? sanitizeText(language, 40) : "unknown",

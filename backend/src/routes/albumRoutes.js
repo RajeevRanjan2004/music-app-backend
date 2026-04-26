@@ -9,7 +9,7 @@ const { uploadsDir } = require("../config/paths");
 const Album = require("../models/Album");
 const Song = require("../models/Song");
 const { sanitizeText, parseNumber } = require("../utils/validation");
-const { resolveAssetUrl } = require("../utils/assets");
+const { DEFAULT_SONG_IMAGE, resolveAssetUrl, resolveSongImageUrl } = require("../utils/assets");
 const { persistUploadedFile } = require("../utils/storage");
 
 const router = express.Router();
@@ -176,7 +176,7 @@ router.get("/:albumId", async (req, res) => {
         id: song.songId,
         title: song.title,
         artist: song.artist,
-        image: resolveAssetUrl(song.image, req),
+        image: resolveSongImageUrl(song.image, req),
         src: resolveAssetUrl(song.src, req),
         duration: song.duration,
         language: song.language,
@@ -257,7 +257,7 @@ router.post(
           })
         : cover
           ? sanitizeText(cover, 500)
-          : "https://picsum.photos/600/600";
+          : DEFAULT_SONG_IMAGE;
       const metadataMap = await parseMetadataFile(metadataFile);
       const audioPaths = [];
 
@@ -316,7 +316,7 @@ router.post(
           id: song.songId,
           title: song.title,
           artist: song.artist,
-          image: resolveAssetUrl(song.image, req),
+          image: resolveSongImageUrl(song.image, req),
           src: resolveAssetUrl(song.src, req),
           duration: song.duration,
           language: song.language,
