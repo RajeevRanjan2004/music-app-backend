@@ -51,16 +51,10 @@ async function cleanupLegacyDemoSongs() {
 }
 
 async function initializeSongCatalog() {
-  const removedSongs = await cleanupLegacyDemoSongs();
-  if (removedSongs > 0) {
-    console.log(`Removed ${removedSongs} legacy demo songs`);
-  }
+  await cleanupLegacyDemoSongs();
 
   try {
-    const syncedSongs = await syncTrendingAudiusTracks({ force: true, limit: 24 });
-    if (syncedSongs.length > 0) {
-      console.log(`Synced ${syncedSongs.length} Audius songs`);
-    }
+    await syncTrendingAudiusTracks({ force: true, limit: 24 });
   } catch (error) {
     console.warn("Audius catalog sync failed:", error.message);
   }
